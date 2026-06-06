@@ -39,8 +39,8 @@ local State = {
 -- ========== AUTO‑STEAL ==========
 local AutoSteal = {
         Enabled = true,
-        Radius = 56,
-        Duration = 1.3,
+        Radius = 60,
+        Duration = 1.4,
         IsStealing = false,
         Data = {},
         ProgressFill = nil,
