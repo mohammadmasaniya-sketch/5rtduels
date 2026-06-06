@@ -18,7 +18,6 @@ local State = {
         isStealing = false, stealStartTime = nil, lastStealTick = 0,
         medusaLastUsed = 0, medusaDebounce = false, medusaCounterEnabled = false,
         dropBrainrotActive = false,
-        autoTpDownEnabled = false, autoTpDownY = 12,
         autoLeftEnabled = false, autoRightEnabled = false,
         autoLeftPhase = 1, autoRightPhase = 1,
         _tpInProgress = false,
@@ -26,12 +25,10 @@ local State = {
         animEnabled = false, unwalkEnabled = true,
         infJumpMode = "manual",
         dropBrainrotToggled = false,
-        tpDownToggled = false,
         -- Keybinds
         keyAutoLeft = Enum.KeyCode.Unknown,
         keyAutoRight = Enum.KeyCode.Unknown,
         keyDropBR = Enum.KeyCode.Unknown,
-        keyTpDown = Enum.KeyCode.Unknown,
         keyAutoBat = Enum.KeyCode.Unknown,
 }
 
@@ -201,7 +198,7 @@ local Conns = {
 
 local h, hrp, speedLbl
 local setAutoLeft, setAutoRight
-local setInstaGrab, setAutoBat, setInfJump, setAntiRag, setFps, setMedusaCounter, setAutoTpDown
+local setInstaGrab, setAutoBat, setInfJump, setAntiRag, setFps, setMedusaCounter
 local setAnimToggle, setUnwalkToggle
 local setupMedusaCounter, stopMedusaCounter, startAntiRagdoll, stopAntiRagdoll
 local applyFPSBoost
@@ -210,7 +207,7 @@ local modeValLbl, normalBox, carryBox, laggerBox, carryLaggerBox
 local setSpeedToggleUI, setLaggerToggleUI
 local progressRadLbl
 
-local setMenuDropBR, setMenuTpDown
+local setMenuDropBR
 
 -- ================= AUTO‑SAVE =================
 local saveDebounce = false
@@ -231,13 +228,11 @@ local function autoSaveConfig()
                         animEnabled=State.animEnabled, unwalkEnabled=State.unwalkEnabled,
                         mobileVisible=MobileButtons.Visible,
                         mobileLocked=MobileButtons.Locked,
-                        autoTpDown=State.autoTpDownEnabled, autoTpDownY=State.autoTpDownY,
                         infJumpMode=State.infJumpMode,
                         -- Keybinds
                         keyAutoLeft=State.keyAutoLeft.Name,
                         keyAutoRight=State.keyAutoRight.Name,
                         keyDropBR=State.keyDropBR.Name,
-                        keyTpDown=State.keyTpDown.Name,
                         keyAutoBat=State.keyAutoBat.Name,
                 }
                 pcall(function() writefile("DarkAngelMiniConfig.json", HttpService:JSONEncode(cfg)) end)
@@ -468,22 +463,6 @@ local function getAutoMoveSpeed(phase)
         end
 end
 
-local function tpToGround()
-        local char = LP.Character
-        if not char then return end
-        local root = char:FindFirstChild("HumanoidRootPart")
-        if not root then return end
-        local rot = root.CFrame.Rotation
-        local raycastParams = RaycastParams.new()
-        raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-        raycastParams.FilterDescendantsInstances = {char}
-        local rayResult = workspace:Raycast(root.Position, Vector3.new(0, -500, 0), raycastParams)
-        if rayResult then
-                root.CFrame = CFrame.new(rayResult.Position + Vector3.new(0, 3, 0)) * rot
-        else
-                root.CFrame = CFrame.new(root.Position + Vector3.new(0, -20, 0)) * rot
-        end
-end
 
 local function runDropBrainrot()
         if State.dropBrainrotActive then return end
@@ -660,16 +639,6 @@ local function createMobilePanel()
                         autoSaveConfig()
                 end, true)
 
-        local tpDownSetActive = makeSeparateBtn("BtnTpDown", "TP\nDOWN",
-                UDim2.new(1, COL1_X, BASE_Y, ROW_Y[3]), "DarkAngelBtn_tpdown.txt",
-                function(setActive, currentActive)
-                        tpToGround()
-                        if setMenuTpDown then setMenuTpDown(true) end
-                        task.delay(0.5, function()
-                                if setMenuTpDown then setMenuTpDown(false) end
-                                setActive(false)
-                        end)
-                end, true)
 
         local carrySpeedSetActive = makeSeparateBtn("BtnCarrySpd", "CARRY\nSPD",
                 UDim2.new(1, COL2_X, BASE_Y, ROW_Y[3]), "DarkAngelBtn_carryspd.txt",
@@ -699,7 +668,6 @@ local function createMobilePanel()
                 carrySpeed = carrySpeedSetActive,
                 lagger = laggerSetActive,
                 dropBR = dropBRSetActive,
-                tpDown = tpDownSetActive,
                 laggerCarry = laggerCarrySetActive,
         }
 
@@ -1637,14 +1605,6 @@ holdBtn.MouseButton1Click:Connect(function()
         autoSaveConfig()
 end)
 
-setAutoTpDown = makeToggleRow("Auto Tp Down", nil, false, function(on)
-        State.autoTpDownEnabled = on
-        autoSaveConfig()
-end)
-makeInputRow("Y Trigger", State.autoTpDownY, function(v)
-        local n = tonumber(v)
-        if n then State.autoTpDownY = n; autoSaveConfig() end
-end)
 setAntiRag = makeToggleRow("Anti Ragdoll", nil, false, function(on)
         State.antiRagdollEnabled=on; if on then startAntiRagdoll() else stopAntiRagdoll() end
 end)
@@ -1676,18 +1636,6 @@ setMenuDropBR = makeToggleRow("Drop Brainrot", nil, false, function(on)
         end
 end, nil, "keyDropBR")
 
--- TP DOWN (changed from "Tp To Ground")
-setMenuTpDown = makeToggleRow("Tp Down", nil, false, function(on)
-        if on then
-                tpToGround()
-                task.delay(0.5, function()
-                        if setMenuTpDown then setMenuTpDown(false) end
-                        if MobileButtons.Buttons and MobileButtons.Buttons.tpDown then
-                                MobileButtons.Buttons.tpDown(false)
-                        end
-                end)
-        end
-end, nil, "keyTpDown")
 
 -- AUTO LEFT with keybind
 setAutoLeft = makeToggleRow("Auto Left", nil, false,
@@ -1782,16 +1730,6 @@ UIS.InputBegan:Connect(function(inp, gp)
                         if MobileButtons.Buttons.dropBR then MobileButtons.Buttons.dropBR(false) end
                 end)
         end
-        -- Tp Down
-        if State.keyTpDown ~= Enum.KeyCode.Unknown and kc == State.keyTpDown then
-                tpToGround()
-                if setMenuTpDown then setMenuTpDown(true) end
-                if MobileButtons.Buttons.tpDown then MobileButtons.Buttons.tpDown(true) end
-                task.delay(0.5, function()
-                        if setMenuTpDown then setMenuTpDown(false) end
-                        if MobileButtons.Buttons.tpDown then MobileButtons.Buttons.tpDown(false) end
-                end)
-        end
         -- Auto Bat
         if State.keyAutoBat ~= Enum.KeyCode.Unknown and kc == State.keyAutoBat then
                 State.autoBatToggled = not State.autoBatToggled
@@ -1819,9 +1757,6 @@ UIS.InputBegan:Connect(function(inp, gp)
         end
         if State.keyDropBR ~= Enum.KeyCode.Unknown and kc == State.keyDropBR then
                 runDropBrainrot()
-        end
-        if State.keyTpDown ~= Enum.KeyCode.Unknown and kc == State.keyTpDown then
-                tpToGround()
         end
         if State.keyAutoBat ~= Enum.KeyCode.Unknown and kc == State.keyAutoBat then
                 State.autoBatToggled = not State.autoBatToggled
@@ -2066,8 +2001,6 @@ local function loadConfig()
         if cfg.infJumpMode == "manual" or cfg.infJumpMode == "hold" then
                 State.infJumpMode = cfg.infJumpMode; updateInfJumpModeUI()
         end
-        if cfg.autoTpDown and type(cfg.autoTpDown)=="boolean" then State.autoTpDownEnabled=cfg.autoTpDown; if setAutoTpDown then setAutoTpDown(cfg.autoTpDown) end end
-        if cfg.autoTpDownY and type(cfg.autoTpDownY)=="number" then State.autoTpDownY=cfg.autoTpDownY end
         if cfg.antiRagdoll then State.antiRagdollEnabled=true;   setAntiRag(true); startAntiRagdoll() end
         if cfg.fpsBoost    then State.fpsBoostEnabled=true;      setFps(true);     applyFPSBoost()    end
         if cfg.medusaCounter then State.medusaCounterEnabled=true; setMedusaCounter(true); setupMedusaCounter(LP.Character) end
@@ -2098,7 +2031,6 @@ local function loadConfig()
         loadKey("keyAutoLeft",  "keyAutoLeft")
         loadKey("keyAutoRight", "keyAutoRight")
         loadKey("keyDropBR",    "keyDropBR")
-        loadKey("keyTpDown",    "keyTpDown")
         loadKey("keyAutoBat",   "keyAutoBat")
         task.spawn(function()
                 task.wait(0.6)
@@ -2164,27 +2096,18 @@ UIS.JumpRequest:Connect(function()
         if root then root.Velocity=Vector3.new(root.Velocity.X,55,root.Velocity.Z) end
 end)
 RunService.Heartbeat:Connect(function()
-        if not State.infJumpEnabled and not State.autoTpDownEnabled then return end
+        if not State.infJumpEnabled then return end
         local char=LP.Character; if not char then return end
         local root=char:FindFirstChild("HumanoidRootPart")
         if not root then return end
-        if State.infJumpEnabled then
-                local hum2=char:FindFirstChildOfClass("Humanoid")
-                if State.infJumpMode == "hold" then
-                        local jumpHeld=UIS:IsKeyDown(Enum.KeyCode.Space) or (hum2 and hum2.Jump==true)
-                        if jumpHeld and root.Velocity.Y < 30 then
-                                root.Velocity=Vector3.new(root.Velocity.X,55,root.Velocity.Z)
-                        end
-                end
-                if root.Velocity.Y<-120 then root.Velocity=Vector3.new(root.Velocity.X,-120,root.Velocity.Z) end
-        end
-        if State.autoTpDownEnabled then
-                local curY = root.Position.Y
-                if curY >= State.autoTpDownY then
-                        local rot = root.CFrame.Rotation
-                        root.CFrame = CFrame.new(root.Position.X, -8.80, root.Position.Z) * rot
+        local hum2=char:FindFirstChildOfClass("Humanoid")
+        if State.infJumpMode == "hold" then
+                local jumpHeld=UIS:IsKeyDown(Enum.KeyCode.Space) or (hum2 and hum2.Jump==true)
+                if jumpHeld and root.Velocity.Y < 30 then
+                        root.Velocity=Vector3.new(root.Velocity.X,55,root.Velocity.Z)
                 end
         end
+        if root.Velocity.Y<-120 then root.Velocity=Vector3.new(root.Velocity.X,-120,root.Velocity.Z) end
 end)
 
 RunService.RenderStepped:Connect(function()
